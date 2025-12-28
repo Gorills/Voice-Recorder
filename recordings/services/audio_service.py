@@ -36,7 +36,7 @@ class AudioService:
                 sample_rate = f.samplerate
                 channels = f.channels
                 format_type = f.format
-                
+            
             return {
                 'duration': duration,
                 'sample_rate': sample_rate,

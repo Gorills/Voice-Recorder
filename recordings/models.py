@@ -13,11 +13,17 @@ def audio_upload_path(instance, filename):
 class Recording(models.Model):
     """Audio recording model"""
     WHISPER_MODEL_CHOICES = [
-        ('tiny', 'Tiny - Самая быстрая (~75 MB)'),
-        ('base', 'Base - Баланс (~150 MB)'),
-        ('small', 'Small - Хорошее качество (~500 MB)'),
-        ('medium', 'Medium - Высокое качество (~1.5 GB)'),
-        ('large', 'Large - Наилучшее качество (~3 GB)'),
+        ('tiny', 'Tiny - Самая быстрая (~75 MB, ~2-5x реального времени)'),
+        ('base', 'Base - Баланс (~150 MB, ~1-3x реального времени)'),
+        ('small', 'Small - Хорошее качество (~500 MB, ~0.5-1x реального времени)'),
+        ('medium', 'Medium - Высокое качество (~1.5 GB, очень медленно, может занять 10-30+ минут)'),
+        ('large', 'Large - Наилучшее качество (~3 GB, очень медленно, может занять 20-60+ минут)'),
+    ]
+    
+    RECOGNITION_SERVICE_CHOICES = [
+        ('whisper', 'OpenAI Whisper (стандартный, высокое качество)'),
+        ('faster-whisper', 'Faster-Whisper (4-5x быстрее, CTranslate2)'),
+        ('vosk', 'Vosk (offline, очень быстрое распознавание)'),
     ]
     
     STATUS_CHOICES = [
@@ -30,7 +36,20 @@ class Recording(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recordings')
     title = models.CharField(max_length=200, default='Без названия')
     audio_file = models.FileField(upload_to=audio_upload_path)
-    whisper_model = models.CharField(max_length=10, choices=WHISPER_MODEL_CHOICES, default='base')
+    recognition_service = models.CharField(
+        max_length=20,
+        choices=RECOGNITION_SERVICE_CHOICES,
+        default='faster-whisper',
+        verbose_name='Библиотека распознавания'
+    )
+    whisper_model = models.CharField(max_length=10, choices=WHISPER_MODEL_CHOICES, default='base', blank=True, null=True)
+    vosk_model = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Идентификатор модели Vosk (например, small-ru-0.22)',
+        verbose_name='Модель Vosk'
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='uploaded')
     transcription = models.TextField(blank=True, null=True)
     error_message = models.TextField(blank=True, null=True)
@@ -76,6 +95,33 @@ class Recording(models.Model):
         else:
             return f"{duration_int} сек"
     
+    def get_recognition_service_display(self):
+        """Get formatted display of recognition service"""
+        return dict(self.RECOGNITION_SERVICE_CHOICES).get(self.recognition_service, self.recognition_service)
+    
+    def get_whisper_model_display(self):
+        """Get formatted display of whisper model"""
+        # Для Vosk возвращаем информацию о выбранной модели Vosk
+        if self.recognition_service == 'vosk':
+            if self.vosk_model:
+                from .services.vosk_model_manager import get_model_info
+                model_info = get_model_info(self.vosk_model)
+                if model_info:
+                    return model_info.get('name', self.vosk_model)
+                return f"Vosk ({self.vosk_model})"
+            return 'Vosk (модель не выбрана)'
+        return dict(self.WHISPER_MODEL_CHOICES).get(self.whisper_model, self.whisper_model)
+    
+    def get_vosk_model_display(self):
+        """Get formatted display of Vosk model"""
+        if self.vosk_model:
+            from .services.vosk_model_manager import get_model_info
+            model_info = get_model_info(self.vosk_model)
+            if model_info:
+                return model_info.get('name', self.vosk_model)
+            return self.vosk_model
+        return None
+    
     def delete(self, *args, **kwargs):
         """Delete file when recording is deleted"""
         if self.audio_file:
@@ -87,11 +133,24 @@ class Recording(models.Model):
 class UserSettings(models.Model):
     """User preferences and settings"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+    default_recognition_service = models.CharField(
+        max_length=20,
+        choices=Recording.RECOGNITION_SERVICE_CHOICES,
+        default='faster-whisper',
+        verbose_name='Библиотека распознавания по умолчанию'
+    )
     default_whisper_model = models.CharField(
         max_length=10,
         choices=Recording.WHISPER_MODEL_CHOICES,
         default='base',
         verbose_name='Модель Whisper по умолчанию'
+    )
+    default_vosk_model = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='Модель Vosk по умолчанию',
+        help_text='Идентификатор модели Vosk (например, small-ru-0.22)'
     )
     auto_transcribe = models.BooleanField(
         default=False,

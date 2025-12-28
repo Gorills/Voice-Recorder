@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalCloseBtn = document.getElementById('modal-close-btn');
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+    const modalServiceSelect = document.getElementById('modal-recognition-service-select');
     const modalSelect = document.getElementById('modal-whisper-model-select');
     
     // Функция открытия модального окна
@@ -66,8 +67,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            const selectedModel = modalSelect?.value || 'base';
-            startTranscription(currentRecordingId, currentRecordingTitle, selectedModel, currentTranscribeButton);
+               const selectedService = modalServiceSelect?.value || 'faster-whisper';
+               const modalVoskSelect = document.getElementById('modal-vosk-model-select');
+               
+               // Для Vosk используем vosk_model, для других - whisper_model
+               let selectedModel;
+               let selectedVoskModel = null;
+               if (selectedService === 'vosk') {
+                   selectedVoskModel = modalVoskSelect?.value || null;
+                   selectedModel = 'base'; // Игнорируется для Vosk
+               } else {
+                   selectedModel = modalSelect?.value || 'base';
+               }
+               
+               startTranscription(currentRecordingId, currentRecordingTitle, selectedService, selectedModel, currentTranscribeButton, selectedVoskModel);
             closeModal();
         });
     }
@@ -109,12 +122,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || `HTTP ${response.status}`);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
+                    const newStatus = data.status || 'uploaded';
                     showNotification('success', 'Обработка остановлена', data.message || `Обработка записи "${recordingTitle}" остановлена`);
                     // Обновить статус в таблице и заменить кнопку
-                    updateRecordingStatus(recordingId, 'uploaded');
+                    updateRecordingStatus(recordingId, newStatus);
                     // Перезагрузить страницу через 1 секунду для обновления интерфейса
                     setTimeout(() => location.reload(), 1000);
                 } else {
@@ -126,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Ошибка при остановке обработки:', error);
-                showNotification('error', 'Ошибка', 'Не удалось остановить обработку');
+                showNotification('error', 'Ошибка', error.message || 'Не удалось остановить обработку');
                 // Восстановить кнопку
                 this.disabled = false;
                 this.innerHTML = originalHTML;
@@ -156,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Функция запуска распознавания
-    function startTranscription(recordingId, recordingTitle, whisperModel, button) {
+    function startTranscription(recordingId, recordingTitle, recognitionService, whisperModel, button, voskModel = null) {
         if (!button || button.disabled) {
             return;
         }
@@ -169,9 +190,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // Получить CSRF токен
         const csrfToken = getCsrfToken();
         
-        // Создать FormData для отправки модели
+        // Создать FormData для отправки
         const formData = new FormData();
-        formData.append('whisper_model', whisperModel);
+        formData.append('recognition_service', recognitionService);
+        // Для Vosk отправляем vosk_model, для других - whisper_model
+        if (recognitionService === 'vosk' && voskModel) {
+            formData.append('vosk_model', voskModel);
+        } else if (recognitionService !== 'vosk') {
+            formData.append('whisper_model', whisperModel);
+        }
         
         fetch(`/recordings/${recordingId}/transcribe/`, {
             method: 'POST',
@@ -313,20 +340,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Функция обновления статуса записи в таблице
     function updateRecordingStatus(recordingId, newStatus) {
-        // Найти кнопку по data-recording-id и получить строку через closest('tr')
-        const button = document.querySelector(`.button-icon-transcribe[data-recording-id="${recordingId}"], .button-icon-delete[data-recording-id="${recordingId}"]`);
-        if (!button) {
-            // Если кнопка не найдена, перезагрузить страницу через некоторое время
-            setTimeout(() => location.reload(), 2000);
-            return;
-        }
-        
-        const row = button.closest('tr');
+        // Найти строку таблицы по data-recording-id
+        const row = document.querySelector(`tr[data-recording-id="${recordingId}"]`);
         if (!row) {
+            // Если строка не найдена, перезагрузить страницу через некоторое время
             setTimeout(() => location.reload(), 2000);
             return;
         }
         
+        // Обновить статус
         const statusCell = row.querySelector('.status-badge');
         if (statusCell) {
             // Обновить класс статуса
@@ -342,7 +364,22 @@ document.addEventListener('DOMContentLoaded', function() {
             statusCell.textContent = statusTexts[newStatus] || newStatus;
         }
         
-        // Скрыть кнопку распознавания если статус processing
+        // Обновить кнопки действий
+        const actionButtonsContainer = row.querySelector('.action-buttons');
+        if (actionButtonsContainer) {
+            const cancelButton = actionButtonsContainer.querySelector('.button-icon-cancel');
+            const transcribeButton = actionButtonsContainer.querySelector('.button-icon-transcribe');
+            
+            if (newStatus === 'processing') {
+                // Показать кнопку отмены, скрыть кнопку распознавания
+                if (cancelButton) cancelButton.style.display = 'inline-flex';
+                if (transcribeButton) transcribeButton.style.display = 'none';
+            } else {
+                // Скрыть кнопку отмены, показать кнопку распознавания
+                if (cancelButton) cancelButton.style.display = 'none';
+                if (transcribeButton) transcribeButton.style.display = 'inline-flex';
+            }
+        }
         const transcribeButton = row.querySelector('.button-icon-transcribe');
         if (transcribeButton && newStatus === 'processing') {
             transcribeButton.style.display = 'none';

@@ -12,6 +12,7 @@ function initFileUpload() {
     const fileUploadStatus = document.getElementById('file-upload-status');
     const fileUploadStatusText = document.getElementById('file-upload-status-text');
     const fileTitleInput = document.getElementById('file-upload-title-input');
+    const fileServiceSelect = document.getElementById('file-recognition-service-select');
     const fileModelSelect = document.getElementById('file-whisper-model-select');
     const fileUploadLabel = document.querySelector('.file-upload-label');
     
@@ -146,8 +147,18 @@ function initFileUpload() {
                 formData.append('title', title);
             }
 
-            // Добавить модель Whisper
-            if (fileModelSelect) {
+            // Добавить библиотеку распознавания
+            const fileVoskModelSelect = document.getElementById('file-vosk-model-select');
+            if (fileServiceSelect) {
+                formData.append('recognition_service', fileServiceSelect.value);
+                // Для Vosk отправляем vosk_model, для других - whisper_model
+                if (fileServiceSelect.value === 'vosk' && fileVoskModelSelect) {
+                    formData.append('vosk_model', fileVoskModelSelect.value);
+                } else if (fileServiceSelect.value !== 'vosk' && fileModelSelect) {
+                    formData.append('whisper_model', fileModelSelect.value);
+                }
+            } else if (fileModelSelect) {
+                // Если выбор библиотеки не найден, отправляем модель Whisper на всякий случай
                 formData.append('whisper_model', fileModelSelect.value);
             }
 

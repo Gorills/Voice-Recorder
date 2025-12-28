@@ -259,6 +259,38 @@ LOGGING = {
     },
 }
 
+# Настройки моделей Vosk
+VOSK_MODELS_DIR = os.environ.get('VOSK_MODELS_DIR', '/app/vosk-models')
+
+# Словарь доступных моделей Vosk
+# Путь может быть относительным (относительно VOSK_MODELS_DIR) или абсолютным
+VOSK_MODELS = {
+    'small-ru-0.22': {
+        'name': 'Vosk Small (ru 0.22) - Рекомендуется',
+        'path': 'vosk-model-small-ru-0.22',  # Относительный путь
+        'size': '50 MB',
+        'description': 'Компактная модель для русского языка, быстрая обработка',
+        'language': 'ru',
+        'recommended': True,
+    },
+    'ru-0.22': {
+        'name': 'Vosk Base (ru 0.22)',
+        'path': 'vosk-model-ru-0.22',
+        'size': '1.5 GB',
+        'description': 'Базовая модель для русского языка, лучшее качество',
+        'language': 'ru',
+        'recommended': False,
+    },
+    'ru-0.42': {
+        'name': 'Vosk Base (ru 0.42)',
+        'path': 'vosk-model-ru-0.42',
+        'size': '1.5 GB',
+        'description': 'Более новая версия базовой модели',
+        'language': 'ru',
+        'recommended': False,
+    },
+}
+
 # Создать директорию для логов (только если не в Docker)
 try:
     (BASE_DIR / 'logs').mkdir(exist_ok=True)

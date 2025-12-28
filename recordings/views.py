@@ -15,7 +15,6 @@ from pathlib import Path
 
 from .models import Recording, UserSettings
 from .forms import RecordingForm, UserSettingsForm
-from .services.whisper_service import WhisperService
 from .services.audio_service import AudioService
 from .tasks import transcribe_recording_task
 
@@ -83,12 +82,17 @@ def dashboard_view(request):
     for rec in recent_recordings:
         logger.debug(f"  Запись {rec.id}: {rec.title}, статус={rec.status}, файл={rec.audio_file.name if rec.audio_file else 'нет'}")
     
+    # Получить доступные модели Vosk для шаблона
+    from .services.vosk_model_manager import get_all_available_models
+    vosk_models = get_all_available_models()
+    
     context = {
         'user_settings': user_settings,
         'total_recordings': total_recordings,
         'completed_recordings': completed_recordings,
         'processing_recordings': processing_recordings,
         'recent_recordings': recent_recordings,
+        'vosk_models': vosk_models,
     }
     
     return render(request, 'recordings/dashboard.html', context)
@@ -233,8 +237,24 @@ def upload_recording_view(request):
         
         # Получить настройки пользователя
         user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
-        if not recording.whisper_model:
-            recording.whisper_model = user_settings.default_whisper_model
+        if not recording.recognition_service:
+            recording.recognition_service = user_settings.default_recognition_service or 'faster-whisper'
+        
+        # Получить модель из формы
+        if recording.recognition_service == 'vosk':
+            # Для Vosk используем vosk_model
+            vosk_model = request.POST.get('vosk_model') or request.GET.get('vosk_model')
+            if vosk_model:
+                recording.vosk_model = vosk_model
+            elif user_settings.default_vosk_model:
+                # Используем модель по умолчанию из настроек
+                recording.vosk_model = user_settings.default_vosk_model
+            recording.whisper_model = None  # Очищаем whisper_model для Vosk
+        else:
+            # Для Whisper/Faster-Whisper используем whisper_model
+            if not recording.whisper_model:
+                recording.whisper_model = user_settings.default_whisper_model
+            recording.vosk_model = None  # Очищаем vosk_model для не-Vosk
         
         # Получить длительность из формы, если передана
         duration_from_form = request.POST.get('duration')
@@ -338,15 +358,29 @@ def transcribe_recording_view(request, pk):
         messages.warning(request, 'Распознавание уже выполняется')
         return redirect('recording_detail', pk=recording.pk)
     
-    # Получить модель Whisper из запроса (если указана)
-    whisper_model = request.POST.get('whisper_model') or request.GET.get('whisper_model')
-    if whisper_model:
-        # Проверить валидность модели
-        valid_models = ['tiny', 'base', 'small', 'medium', 'large']
-        if whisper_model in valid_models:
-            recording.whisper_model = whisper_model
-            recording.save()
-            logger.info(f"Использована модель {whisper_model} для повторного распознавания записи {recording.id}")
+    # Получить библиотеку распознавания из запроса (если указана)
+    recognition_service = request.POST.get('recognition_service') or request.GET.get('recognition_service')
+    if recognition_service:
+        valid_services = ['whisper', 'faster-whisper', 'vosk']
+        if recognition_service in valid_services:
+            recording.recognition_service = recognition_service
+            logger.info(f"Использована библиотека {recognition_service} для повторного распознавания записи {recording.id}")
+            # Для Vosk очищаем whisper_model
+            if recognition_service == 'vosk':
+                recording.whisper_model = None
+    
+    # Получить модель Whisper из запроса (если указана, и только для не-Vosk)
+    if recording.recognition_service != 'vosk':
+        whisper_model = request.POST.get('whisper_model') or request.GET.get('whisper_model')
+        if whisper_model:
+            # Проверить валидность модели
+            valid_models = ['tiny', 'base', 'small', 'medium', 'large']
+            if whisper_model in valid_models:
+                recording.whisper_model = whisper_model
+                logger.info(f"Использована модель {whisper_model} для повторного распознавания записи {recording.id}")
+    
+    if recognition_service:
+        recording.save()
     
     # Запустить задачу распознавания
     task = transcribe_recording_task.delay(recording.id)
@@ -368,12 +402,19 @@ def transcribe_recording_view(request, pk):
 @require_http_methods(["POST"])
 def cancel_transcription_view(request, pk):
     """Cancel transcription task for recording"""
+    from celery import current_app
+    
     recording = get_object_or_404(Recording, pk=pk, user=request.user)
     
+    # Если запись уже не в обработке, это не ошибка - возможно обработка уже завершилась
     if recording.status != 'processing':
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'success': False, 'error': 'Запись не находится в обработке'}, status=400)
-        messages.warning(request, 'Запись не находится в обработке')
+            return JsonResponse({
+                'success': True, 
+                'message': 'Запись уже не находится в обработке.',
+                'status': recording.status
+            })
+        messages.info(request, 'Запись уже не находится в обработке')
         return redirect('recording_detail', pk=recording.pk)
     
     # Отменить задачу Celery
@@ -392,7 +433,8 @@ def cancel_transcription_view(request, pk):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({
             'success': True,
-            'message': 'Обработка остановлена. Теперь вы можете запустить распознавание заново.'
+            'message': 'Обработка остановлена. Теперь вы можете запустить распознавание заново.',
+            'status': 'uploaded'
         })
     
     messages.success(request, 'Обработка остановлена')
@@ -456,6 +498,10 @@ def settings_view(request):
     """User settings"""
     user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
     
+    # Получить доступные модели Vosk для шаблона
+    from .services.vosk_model_manager import get_all_available_models
+    vosk_models = get_all_available_models()
+    
     if request.method == 'POST':
         form = UserSettingsForm(request.POST, instance=user_settings)
         if form.is_valid():
@@ -468,6 +514,7 @@ def settings_view(request):
     context = {
         'form': form,
         'user_settings': user_settings,
+        'vosk_models': vosk_models.items(),
     }
     
     return render(request, 'recordings/settings.html', context)

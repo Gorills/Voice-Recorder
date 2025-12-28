@@ -1,15 +1,17 @@
-"""Service for Whisper speech recognition"""
+"""Service for Whisper speech recognition using openai-whisper"""
 import whisper
 import numpy as np
 import torch
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List
 import logging
+
+from .speech_recognition_service import SpeechRecognitionService
 
 logger = logging.getLogger(__name__)
 
 
-class WhisperService:
+class WhisperService(SpeechRecognitionService):
     """Service for speech recognition using Whisper"""
     
     _models = {}  # Cache для моделей
@@ -57,7 +59,11 @@ class WhisperService:
             logger.error(f"Ошибка при распознавании: {e}")
             raise Exception(f"Ошибка при распознавании: {e}")
     
-    def get_available_models(self):
+    def get_available_models(self) -> List[str]:
         """Get list of available Whisper models"""
         return ['tiny', 'base', 'small', 'medium', 'large']
+    
+    def get_service_name(self) -> str:
+        """Get human-readable service name"""
+        return "OpenAI Whisper"
 

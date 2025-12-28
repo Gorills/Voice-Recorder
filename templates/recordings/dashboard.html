@@ -60,14 +60,45 @@
             </div>
 
             <div class="form-group" style="max-width: 400px; width: 100%;">
-                <label for="file-whisper-model-select" class="form-label">Модель Whisper</label>
-                <select id="file-whisper-model-select" class="form-select">
-                    <option value="tiny" {% if user_settings.default_whisper_model == 'tiny' %}selected{% endif %}>Tiny - Самая быстрая</option>
-                    <option value="base" {% if user_settings.default_whisper_model == 'base' or not user_settings.default_whisper_model %}selected{% endif %}>Base - Баланс (рекомендуется)</option>
-                    <option value="small" {% if user_settings.default_whisper_model == 'small' %}selected{% endif %}>Small - Хорошее качество</option>
-                    <option value="medium" {% if user_settings.default_whisper_model == 'medium' %}selected{% endif %}>Medium - Высокое качество</option>
-                    <option value="large" {% if user_settings.default_whisper_model == 'large' %}selected{% endif %}>Large - Наилучшее качество</option>
+                <label for="file-recognition-service-select" class="form-label">Библиотека распознавания</label>
+                <select id="file-recognition-service-select" class="form-select">
+                    <option value="faster-whisper" {% if user_settings.default_recognition_service == 'faster-whisper' or not user_settings.default_recognition_service %}selected{% endif %}>Faster-Whisper (⚡ 4-5x быстрее, рекомендуется)</option>
+                    <option value="vosk" {% if user_settings.default_recognition_service == 'vosk' %}selected{% endif %}>Vosk (⚡⚡ offline, очень быстро)</option>
+                    <option value="whisper" {% if user_settings.default_recognition_service == 'whisper' %}selected{% endif %}>OpenAI Whisper (стандартный)</option>
                 </select>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8125rem;">
+                    Faster-Whisper использует CTranslate2. Vosk работает offline и очень быстро, но требует загрузки модели отдельно.
+                </small>
+            </div>
+
+            <div class="form-group" style="max-width: 400px; width: 100%;">
+                <label for="file-whisper-model-select" class="form-label">Модель Whisper</label>
+                <select id="file-whisper-model-select" name="whisper_model" class="form-select">
+                    <option value="tiny" {% if user_settings.default_whisper_model == 'tiny' %}selected{% endif %}>Tiny - Самая быстрая (~2-5x реального времени)</option>
+                    <option value="base" {% if user_settings.default_whisper_model == 'base' or not user_settings.default_whisper_model %}selected{% endif %}>Base - Баланс (рекомендуется, ~1-3x реального времени)</option>
+                    <option value="small" {% if user_settings.default_whisper_model == 'small' %}selected{% endif %}>Small - Хорошее качество (~0.5-1x реального времени)</option>
+                    <option value="medium" {% if user_settings.default_whisper_model == 'medium' %}selected{% endif %}>Medium - Высокое качество (⚠️ очень медленно, 10-30+ минут)</option>
+                    <option value="large" {% if user_settings.default_whisper_model == 'large' %}selected{% endif %}>Large - Наилучшее качество (⚠️ очень медленно, 20-60+ минут)</option>
+                </select>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8125rem;">
+                    ⚠️ Модели Medium и Large работают очень медленно на CPU. Рекомендуется использовать Tiny, Base или Small.
+                </small>
+            </div>
+
+            <div class="form-group" style="max-width: 400px; width: 100%; display: none;">
+                <label for="file-vosk-model-select" class="form-label">Модель Vosk</label>
+                <select id="file-vosk-model-select" name="vosk_model" class="form-select">
+                    {% for model_id, model_info in vosk_models.items %}
+                        <option value="{{ model_id }}" {% if model_info.recommended or forloop.first %}selected{% endif %}>
+                            {{ model_info.name }} ({{ model_info.size }})
+                        </option>
+                    {% empty %}
+                        <option value="">Модели Vosk не настроены</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8125rem;">
+                    Выберите модель Vosk. Модели должны быть загружены в директорию /app/vosk-models/
+                </small>
             </div>
             
             <button id="file-upload-button" class="button button-primary button-large" disabled>
@@ -146,14 +177,45 @@
         </div>
 
         <div class="form-group" style="max-width: 400px;">
-            <label for="whisper-model-select" class="form-label">Модель Whisper</label>
-            <select id="whisper-model-select" class="form-select">
-                <option value="tiny" {% if user_settings.default_whisper_model == 'tiny' %}selected{% endif %}>Tiny - Самая быстрая</option>
-                <option value="base" {% if user_settings.default_whisper_model == 'base' or not user_settings.default_whisper_model %}selected{% endif %}>Base - Баланс (рекомендуется)</option>
-                <option value="small" {% if user_settings.default_whisper_model == 'small' %}selected{% endif %}>Small - Хорошее качество</option>
-                <option value="medium" {% if user_settings.default_whisper_model == 'medium' %}selected{% endif %}>Medium - Высокое качество</option>
-                <option value="large" {% if user_settings.default_whisper_model == 'large' %}selected{% endif %}>Large - Наилучшее качество</option>
+            <label for="recognition-service-select" class="form-label">Библиотека распознавания</label>
+            <select id="recognition-service-select" class="form-select">
+                <option value="faster-whisper" {% if user_settings.default_recognition_service == 'faster-whisper' or not user_settings.default_recognition_service %}selected{% endif %}>Faster-Whisper (⚡ 4-5x быстрее, рекомендуется)</option>
+                <option value="vosk" {% if user_settings.default_recognition_service == 'vosk' %}selected{% endif %}>Vosk (⚡⚡ offline, очень быстро)</option>
+                <option value="whisper" {% if user_settings.default_recognition_service == 'whisper' %}selected{% endif %}>OpenAI Whisper (стандартный)</option>
             </select>
+            <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8125rem;">
+                Faster-Whisper использует CTranslate2. Vosk работает offline и очень быстро, но требует загрузки модели отдельно.
+            </small>
+        </div>
+
+        <div class="form-group" style="max-width: 400px;">
+            <label for="whisper-model-select" class="form-label">Модель Whisper</label>
+            <select id="whisper-model-select" name="whisper_model" class="form-select">
+                <option value="tiny" {% if user_settings.default_whisper_model == 'tiny' %}selected{% endif %}>Tiny - Самая быстрая (~2-5x реального времени)</option>
+                <option value="base" {% if user_settings.default_whisper_model == 'base' or not user_settings.default_whisper_model %}selected{% endif %}>Base - Баланс (рекомендуется, ~1-3x реального времени)</option>
+                <option value="small" {% if user_settings.default_whisper_model == 'small' %}selected{% endif %}>Small - Хорошее качество (~0.5-1x реального времени)</option>
+                <option value="medium" {% if user_settings.default_whisper_model == 'medium' %}selected{% endif %}>Medium - Высокое качество (⚠️ очень медленно, 10-30+ минут)</option>
+                <option value="large" {% if user_settings.default_whisper_model == 'large' %}selected{% endif %}>Large - Наилучшее качество (⚠️ очень медленно, 20-60+ минут)</option>
+            </select>
+            <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8125rem;">
+                ⚠️ Модели Medium и Large работают очень медленно на CPU. Рекомендуется использовать Tiny, Base или Small.
+            </small>
+        </div>
+
+        <div class="form-group" style="max-width: 400px; display: none;">
+            <label for="vosk-model-select" class="form-label">Модель Vosk</label>
+            <select id="vosk-model-select" name="vosk_model" class="form-select">
+                {% for model_id, model_info in vosk_models.items %}
+                    <option value="{{ model_id }}" {% if model_info.recommended or forloop.first %}selected{% endif %}>
+                        {{ model_info.name }} ({{ model_info.size }})
+                    </option>
+                {% empty %}
+                    <option value="">Модели Vosk не настроены</option>
+                {% endfor %}
+            </select>
+            <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; font-size: 0.8125rem;">
+                Выберите модель Vosk. Модели должны быть загружены в директорию /app/vosk-models/
+            </small>
         </div>
 
         <div id="audio-preview-container" class="audio-preview-container hidden">
@@ -188,7 +250,7 @@
                     </thead>
                     <tbody>
                         {% for recording in recent_recordings %}
-                        <tr>
+                        <tr data-recording-id="{{ recording.id }}">
                             <td>
                                 <strong>{{ recording.title }}</strong>
                                 {% if recording.audio_file %}
@@ -248,26 +310,48 @@
     </div>
 </div>
 
-<!-- Modal for Whisper Model Selection -->
+<!-- Modal for Recognition Settings Selection -->
 <div id="whisper-model-modal" class="modal" style="display: none;">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Выберите модель Whisper</h3>
+            <h3>Настройки распознавания</h3>
             <button class="modal-close" id="modal-close-btn">&times;</button>
         </div>
         <div class="modal-body">
-            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Выберите модель для распознавания речи:</p>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Выберите библиотеку и модель для распознавания речи:</p>
+            <div class="modal-form-group" style="margin-bottom: 1rem;">
+                <label class="form-label">Библиотека распознавания</label>
+                <select id="modal-recognition-service-select" class="form-select">
+                    <option value="faster-whisper" selected>Faster-Whisper (⚡ 4-5x быстрее, рекомендуется)</option>
+                    <option value="vosk">Vosk (⚡⚡ offline, очень быстро)</option>
+                    <option value="whisper">OpenAI Whisper (стандартный)</option>
+                </select>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem;">Faster-Whisper использует CTranslate2. Vosk работает offline и очень быстро, но требует загрузки модели отдельно.</small>
+            </div>
             <div class="modal-form-group">
                 <label class="form-label">Модель Whisper</label>
                 <select id="modal-whisper-model-select" class="form-select">
-                    <option value="tiny">Tiny - Самая быстрая</option>
-                    <option value="base" selected>Base - Баланс (рекомендуется)</option>
-                    <option value="small">Small - Хорошее качество</option>
-                    <option value="medium">Medium - Высокое качество</option>
-                    <option value="large">Large - Наилучшее качество</option>
+                    <option value="tiny">Tiny - Самая быстрая (~2-5x реального времени)</option>
+                    <option value="base" selected>Base - Баланс (рекомендуется, ~1-3x реального времени)</option>
+                    <option value="small">Small - Хорошее качество (~0.5-1x реального времени)</option>
+                    <option value="medium">Medium - Высокое качество (⚠️ очень медленно, 10-30+ минут)</option>
+                    <option value="large">Large - Наилучшее качество (⚠️ очень медленно, 20-60+ минут)</option>
                 </select>
-                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem;">Большие модели дают лучшее качество, но работают медленнее.</small>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem;">⚠️ Модели Medium и Large работают очень медленно на CPU.</small>
+            </div>
+            <div class="modal-form-group" style="display: none;">
+                <label class="form-label">Модель Vosk</label>
+                <select id="modal-vosk-model-select" class="form-select">
+                    {% for model_id, model_info in vosk_models.items %}
+                        <option value="{{ model_id }}" {% if model_info.recommended or forloop.first %}selected{% endif %}>
+                            {{ model_info.name }} ({{ model_info.size }})
+                        </option>
+                    {% empty %}
+                        <option value="">Модели Vosk не настроены</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem;">Выберите модель Vosk.</small>
             </div>
         </div>
         <div class="modal-footer">

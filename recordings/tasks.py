@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from .models import Recording
-from .services.whisper_service import WhisperService
+from .services.service_factory import SpeechRecognitionServiceFactory
 from .services.audio_service import AudioService
 
 logger = logging.getLogger(__name__)
@@ -29,12 +29,25 @@ def transcribe_recording_task(self, recording_id):
         # Получить путь к файлу
         audio_path = Path(recording.audio_file.path)
         
+        # Создать сервис распознавания речи
+        # Для Vosk создаем сервис с model_id, для других - без параметров
+        if recording.recognition_service == 'vosk':
+            from .services.vosk_service import VoskService
+            if recording.vosk_model:
+                recognition_service = VoskService(model_id=recording.vosk_model)
+            else:
+                recognition_service = VoskService()  # Использует модель по умолчанию
+        else:
+            recognition_service = SpeechRecognitionServiceFactory.get_service(
+                recording.recognition_service or 'faster-whisper',
+                device='cpu'
+            )
+        
         # Распознать речь
-        whisper_service = WhisperService()
-        result = whisper_service.transcribe_file(
+        result = recognition_service.transcribe_file(
             audio_path,
-            model_size=recording.whisper_model,
-            language='ru'  # Можно добавить в модель
+            model_size=recording.whisper_model or 'base' if recording.recognition_service != 'vosk' else 'base',
+            language=recording.user.settings.language
         )
         
         # Сохранить результат

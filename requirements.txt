@@ -5,6 +5,8 @@ crispy-bootstrap5>=0.7
 
 # Распознавание речи
 openai-whisper>=20231117
+faster-whisper>=0.10.0  # Быстрая версия Whisper с CTranslate2
+vosk>=0.3.45  # Offline распознавание речи (быстрое, без интернета)
 torch>=2.0.0
 
 # Обработка аудио

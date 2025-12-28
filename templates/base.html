@@ -47,11 +47,12 @@
         {% block content %}{% endblock %}
     </div>
     
-    <!-- Audio Recorder Script -->
-    <script src="{% static 'js/audio_recorder.js' %}"></script>
-    <script src="{% static 'js/file_upload.js' %}"></script>
-    <script src="{% static 'js/recordings_actions.js' %}"></script>
-    <script src="{% static 'js/dashboard.js' %}"></script>
+<!-- Audio Recorder Script -->
+<script src="{% static 'js/recognition_service_handler.js' %}"></script>
+<script src="{% static 'js/audio_recorder.js' %}"></script>
+<script src="{% static 'js/file_upload.js' %}"></script>
+<script src="{% static 'js/recordings_actions.js' %}"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
