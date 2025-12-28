@@ -22,6 +22,9 @@ class RecordingForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Сделать whisper_model необязательным
         self.fields['whisper_model'].required = False
+        # Установить значение по умолчанию для recognition_service, если не указано
+        if not self.initial.get('recognition_service') and not self.data.get('recognition_service'):
+            self.fields['recognition_service'].initial = 'faster-whisper'
         
         # Примечание: vosk_model обрабатывается отдельно в view через request.POST,
         # так как оно зависит от выбранного recognition_service
