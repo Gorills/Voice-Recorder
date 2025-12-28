@@ -17,10 +17,15 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 # CSRF settings
-CSRF_TRUSTED_ORIGINS = os.environ.get(
+csrf_origins = os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 
     'https://voice.profit-platform.ru,http://voice.profit-platform.ru'
-).split(',')
+)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() 
+    for origin in csrf_origins.split(',')
+    if origin.strip()
+]
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
 
