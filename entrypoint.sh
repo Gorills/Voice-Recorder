@@ -23,6 +23,10 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput || true
 
+echo "Creating media directories..."
+mkdir -p /app/media/audio
+chmod -R 777 /app/media || true
+
 echo "Starting application..."
 exec "$@"
 
