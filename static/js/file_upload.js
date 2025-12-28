@@ -18,7 +18,7 @@ function initFileUpload() {
     let selectedFile = null;
 
     if (!fileInput || !fileUploadButton) {
-        console.warn('File upload elements not found');
+        // Elements not found on this page, silently return
         return;
     }
 
