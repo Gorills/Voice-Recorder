@@ -5,7 +5,7 @@ version: '3.8'
 services:
   web:
     restart: unless-stopped
-    command: gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 --keep-alive 5 --log-level info --access-logfile - --error-logfile - voice_recorder.wsgi:application
+    command: gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 --keepalive 5 --log-level info --access-logfile - --error-logfile - voice_recorder.wsgi:application
     environment:
       - DEBUG=False
       - DJANGO_LOG_LEVEL=INFO
