@@ -40,6 +40,8 @@ class Recording(models.Model):
         max_length=20,
         choices=RECOGNITION_SERVICE_CHOICES,
         default='faster-whisper',
+        blank=False,  # Не может быть пустым
+        null=False,   # Не может быть NULL
         verbose_name='Библиотека распознавания'
     )
     whisper_model = models.CharField(max_length=10, choices=WHISPER_MODEL_CHOICES, default='base', blank=True, null=True)

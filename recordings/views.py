@@ -224,7 +224,15 @@ def upload_recording_view(request):
             messages.error(request, error_msg)
             return redirect('dashboard')
     
-    form = RecordingForm(request.POST, request.FILES)
+    # Получить настройки пользователя для установки значений по умолчанию
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    
+    # Установить значения по умолчанию для формы, если не указаны в запросе
+    form_data = request.POST.copy()
+    if not form_data.get('recognition_service'):
+        form_data['recognition_service'] = user_settings.default_recognition_service or 'faster-whisper'
+    
+    form = RecordingForm(form_data, request.FILES)
     
     if form.is_valid():
         recording = form.save(commit=False)
@@ -235,8 +243,7 @@ def upload_recording_view(request):
             from django.utils import timezone
             recording.title = f"Запись {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
         
-        # Получить настройки пользователя
-        user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+        # Убедиться, что recognition_service установлен
         if not recording.recognition_service:
             recording.recognition_service = user_settings.default_recognition_service or 'faster-whisper'
         
