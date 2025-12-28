@@ -45,3 +45,7 @@ Thumbs.db
 # Logs
 logs/
 
+# Vosk models (too large for git)
+vosk-models/
+**/vosk-models/
+
