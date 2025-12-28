@@ -168,19 +168,14 @@ CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {
 
 # Security settings для продакшена
 if not DEBUG:
-    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
-    # Отключаем secure cookies для HTTP
-    if SECURE_SSL_REDIRECT:
-        SESSION_COOKIE_SECURE = True
-        CSRF_COOKIE_SECURE = True
-        SECURE_HSTS_SECONDS = 31536000
-        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-        SECURE_HSTS_PRELOAD = True
-        SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
-    else:
-        SESSION_COOKIE_SECURE = False
-        CSRF_COOKIE_SECURE = False
-        SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Отключаем для HTTP
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
+    # Включаем secure cookies для HTTPS
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
