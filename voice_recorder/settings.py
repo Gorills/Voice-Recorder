@@ -168,6 +168,8 @@ CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {
 
 # Security settings для продакшена
 if not DEBUG:
+    # Указываем Django, что он находится за обратным прокси (nginx)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
     # Включаем secure cookies для HTTPS
     SESSION_COOKIE_SECURE = True
