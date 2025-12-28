@@ -228,9 +228,11 @@ def upload_recording_view(request):
     user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
     
     # Установить значения по умолчанию для формы, если не указаны в запросе
-    form_data = request.POST.copy()
+    # request.POST может быть immutable QueryDict, поэтому делаем копию
+    form_data = request.POST.copy() if hasattr(request.POST, 'copy') else request.POST
     if not form_data.get('recognition_service'):
         form_data['recognition_service'] = user_settings.default_recognition_service or 'faster-whisper'
+        logger.debug(f"Установлено значение по умолчанию для recognition_service: {form_data['recognition_service']}")
     
     form = RecordingForm(form_data, request.FILES)
     
