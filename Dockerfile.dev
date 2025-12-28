@@ -1,0 +1,42 @@
+# Dockerfile для разработки
+FROM python:3.11-slim
+
+# Установка системных зависимостей
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    libpq-dev \
+    ffmpeg \
+    postgresql-client \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование requirements и установка зависимостей
+COPY requirements.txt requirements-dev.txt* ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    ([ -f requirements-dev.txt ] && pip install --no-cache-dir -r requirements-dev.txt || true)
+
+# Копирование проекта
+COPY . .
+
+# Копирование entrypoint скрипта
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Создание директорий
+RUN mkdir -p /app/staticfiles /app/media /app/logs
+
+# Порт
+EXPOSE 8000
+
+# Entrypoint
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Команда запуска для разработки
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+

@@ -1,0 +1,43 @@
+# Файл для локальной разработки
+# Этот файл автоматически подключается docker-compose
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - ./media:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DJANGO_LOG_LEVEL=DEBUG
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: celery -A voice_recorder worker --loglevel=info --concurrency=2 --max-tasks-per-child=20 --max-memory-per-child=400000 --time-limit=1800 --soft-time-limit=1500
+    volumes:
+      - .:/app
+      - ./media:/app/media
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+

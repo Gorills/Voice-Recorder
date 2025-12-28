@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Дашборд{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Добро пожаловать, {{ user.username }}</h1>
+    <p>Управляйте своими аудио записями</p>
+</div>
+
+<!-- Statistics -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ total_recordings }}</div>
+        <div class="stat-label">Всего записей</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ completed_recordings }}</div>
+        <div class="stat-label">Обработано</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ processing_recordings }}</div>
+        <div class="stat-label">В обработке</div>
+    </div>
+</div>
+
+<!-- Upload File Section -->
+<div class="recording-section" style="margin-bottom: 2rem;">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Загрузка аудио файла</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9375rem;">Загрузите аудио файл с вашего устройства</p>
+    </div>
+    
+    <div class="file-upload-container">
+        <div id="file-upload-status" class="recording-status">
+            <span id="file-upload-status-text">Выберите файл для загрузки</span>
+        </div>
+        
+        <div class="file-upload-controls">
+            <div style="position: relative; width: 100%; max-width: 400px;">
+                <input type="file" id="file-upload-input" class="form-input" accept="audio/*">
+                <label for="file-upload-input" class="file-upload-label">
+                    <svg style="width: 24px; height: 24px; margin-bottom: 0.5rem; display: inline-block; vertical-align: middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <span style="display: block; font-size: 0.875rem;">Нажмите для выбора файла или перетащите файл сюда</span>
+                </label>
+            </div>
+            
+            <div id="file-preview-container" style="display: none; width: 100%; max-width: 400px;">
+                <p style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.875rem;">Выбранный файл:</p>
+                <div id="file-info" style="padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 0.75rem;"></div>
+                <audio id="file-audio-preview" controls style="width: 100%;"></audio>
+            </div>
+            
+            <div class="form-group" style="max-width: 400px; width: 100%;">
+                <label for="file-upload-title-input" class="form-label">Название (необязательно)</label>
+                <input type="text" id="file-upload-title-input" class="form-input" 
+                       placeholder="Оставьте пустым для автоматического названия">
+            </div>
+
+            <div class="form-group" style="max-width: 400px; width: 100%;">
+                <label for="file-whisper-model-select" class="form-label">Модель Whisper</label>
+                <select id="file-whisper-model-select" class="form-select">
+                    <option value="tiny" {% if user_settings.default_whisper_model == 'tiny' %}selected{% endif %}>Tiny - Самая быстрая</option>
+                    <option value="base" {% if user_settings.default_whisper_model == 'base' or not user_settings.default_whisper_model %}selected{% endif %}>Base - Баланс (рекомендуется)</option>
+                    <option value="small" {% if user_settings.default_whisper_model == 'small' %}selected{% endif %}>Small - Хорошее качество</option>
+                    <option value="medium" {% if user_settings.default_whisper_model == 'medium' %}selected{% endif %}>Medium - Высокое качество</option>
+                    <option value="large" {% if user_settings.default_whisper_model == 'large' %}selected{% endif %}>Large - Наилучшее качество</option>
+                </select>
+            </div>
+            
+            <button id="file-upload-button" class="button button-primary button-large" disabled>
+                <svg class="button-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+                Загрузить файл
+            </button>
+        </div>
+    </div>
+    
+    {% csrf_token %}
+</div>
+
+<!-- Recording Section -->
+<div class="recording-section">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">Запись звука</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9375rem;">Запишите аудио прямо в браузере</p>
+    </div>
+    
+    <div class="recording-controls">
+        <div id="recording-status" class="recording-status">
+            <span id="recording-status-text">Готов к записи</span>
+            <span id="recording-timer" class="recording-timer-hidden">00:00</span>
+        </div>
+        
+        <!-- Визуализация уровня звука (полоски) -->
+        <div id="volume-bars" class="volume-bars" style="display: none;">
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+            <div class="volume-bar"></div>
+        </div>
+        
+        <!-- Визуализация уровня звука (прогресс-бар) -->
+        <div id="volume-indicator-container" class="volume-indicator-container" style="display: none;">
+            <div id="volume-indicator" class="volume-indicator"></div>
+        </div>
+        
+        <div class="recording-buttons">
+            <button id="record-button" class="button button-danger button-large">
+                <svg class="button-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                </svg>
+                Начать запись
+            </button>
+            <button id="stop-button" class="button button-secondary button-large" disabled>
+                <svg class="button-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"/>
+                </svg>
+                Остановить
+            </button>
+        </div>
+        
+        <div class="form-group" style="max-width: 400px;">
+            <label for="recording-title-input" class="form-label">Название (необязательно)</label>
+            <input type="text" id="recording-title-input" class="form-input" 
+                   placeholder="Оставьте пустым для автоматического названия">
+        </div>
+
+        <div class="form-group" style="max-width: 400px;">
+            <label for="whisper-model-select" class="form-label">Модель Whisper</label>
+            <select id="whisper-model-select" class="form-select">
+                <option value="tiny" {% if user_settings.default_whisper_model == 'tiny' %}selected{% endif %}>Tiny - Самая быстрая</option>
+                <option value="base" {% if user_settings.default_whisper_model == 'base' or not user_settings.default_whisper_model %}selected{% endif %}>Base - Баланс (рекомендуется)</option>
+                <option value="small" {% if user_settings.default_whisper_model == 'small' %}selected{% endif %}>Small - Хорошее качество</option>
+                <option value="medium" {% if user_settings.default_whisper_model == 'medium' %}selected{% endif %}>Medium - Высокое качество</option>
+                <option value="large" {% if user_settings.default_whisper_model == 'large' %}selected{% endif %}>Large - Наилучшее качество</option>
+            </select>
+        </div>
+
+        <div id="audio-preview-container" class="audio-preview-container hidden">
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem;">Предпросмотр:</p>
+            <audio id="audio-preview" controls></audio>
+        </div>
+    </div>
+    
+    {% csrf_token %}
+</div>
+
+<!-- Recent Recordings -->
+<div class="card dashboard-view">
+    <div class="card-header">
+        <h3>Последние записи</h3>
+        <a href="{% url 'recordings_list' %}" class="button button-secondary" style="padding: 0.625rem 1rem; font-size: 0.875rem;">Все записи</a>
+    </div>
+    
+    <div class="card-body">
+        {% if recent_recordings %}
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Модель</th>
+                            <th>Длительность</th>
+                            <th>Статус</th>
+                            <th>Дата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recording in recent_recordings %}
+                        <tr>
+                            <td>
+                                <strong>{{ recording.title }}</strong>
+                                {% if recording.audio_file %}
+                                    <br><span class="text-muted">{{ recording.get_file_name }} ({{ recording.get_file_size }} MB)</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge badge-primary">{{ recording.get_whisper_model_display }}</span></td>
+                            <td>
+                                {% if recording.duration and recording.duration > 0 %}
+                                    {{ recording.get_duration_display }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="status-badge status-{{ recording.status }}">{{ recording.get_status_display }}</span></td>
+                            <td>{{ recording.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>
+                                <div class="action-buttons" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                    <a href="{% url 'recording_detail' recording.pk %}" class="button-icon-small button-icon-view" title="Просмотр" data-recording-id="{{ recording.pk }}">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    </a>
+                                    {% if recording.status == 'processing' %}
+                                    <button class="button-icon-small button-icon-cancel" title="Остановить обработку" data-recording-id="{{ recording.pk }}" data-recording-title="{{ recording.title }}">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                                        </svg>
+                                    </button>
+                                    {% else %}
+                                    <button class="button-icon-small button-icon-transcribe" title="Распознать речь" data-recording-id="{{ recording.pk }}" data-recording-title="{{ recording.title }}">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                    <button class="button-icon-small button-icon-delete" title="Удалить" data-recording-id="{{ recording.pk }}" data-recording-title="{{ recording.title }}">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <span>ℹ️</span>
+                У вас пока нет записей. Используйте форму записи выше для создания первой записи.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal for Whisper Model Selection -->
+<div id="whisper-model-modal" class="modal" style="display: none;">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Выберите модель Whisper</h3>
+            <button class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Выберите модель для распознавания речи:</p>
+            <div class="modal-form-group">
+                <label class="form-label">Модель Whisper</label>
+                <select id="modal-whisper-model-select" class="form-select">
+                    <option value="tiny">Tiny - Самая быстрая</option>
+                    <option value="base" selected>Base - Баланс (рекомендуется)</option>
+                    <option value="small">Small - Хорошее качество</option>
+                    <option value="medium">Medium - Высокое качество</option>
+                    <option value="large">Large - Наилучшее качество</option>
+                </select>
+                <small class="form-text text-muted" style="display: block; margin-top: 0.5rem;">Большие модели дают лучшее качество, но работают медленнее.</small>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="button button-secondary" id="modal-cancel-btn">Отмена</button>
+            <button class="button button-primary" id="modal-confirm-btn">Запустить распознавание</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

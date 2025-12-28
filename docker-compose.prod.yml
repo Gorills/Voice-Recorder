@@ -1,0 +1,61 @@
+# Файл для продакшена
+# Использование: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+version: '3.8'
+
+services:
+  web:
+    restart: unless-stopped
+    command: gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 --keep-alive 5 --log-level info --access-logfile - --error-logfile - voice_recorder.wsgi:application
+    environment:
+      - DEBUG=False
+      - DJANGO_LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  celery:
+    restart: unless-stopped
+    command: celery -A voice_recorder worker --loglevel=info --concurrency=2 --max-tasks-per-child=50 --max-memory-per-child=500000
+    environment:
+      - DEBUG=False
+      - DJANGO_LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  celery-beat:
+    restart: unless-stopped
+    environment:
+      - DEBUG=False
+      - DJANGO_LOG_LEVEL=INFO
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./staticfiles:/app/staticfiles:ro
+      - ./media:/app/media:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - voice_recorder_network
+
+volumes:
+  postgres_data:
+  redis_data:
