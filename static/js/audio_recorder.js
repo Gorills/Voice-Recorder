@@ -390,16 +390,19 @@ function initAudioRecorder() {
             const serviceSelect = document.getElementById('recognition-service-select');
             const whisperModelSelect = document.getElementById('whisper-model-select');
             const voskModelSelect = document.getElementById('vosk-model-select');
-            if (serviceSelect) {
-                formData.append('recognition_service', serviceSelect.value);
-                // Для Vosk отправляем vosk_model, для других - whisper_model
-                if (serviceSelect.value === 'vosk' && voskModelSelect) {
-                    formData.append('vosk_model', voskModelSelect.value);
-                } else if (serviceSelect.value !== 'vosk' && whisperModelSelect) {
-                    formData.append('whisper_model', whisperModelSelect.value);
-                }
-            } else if (whisperModelSelect) {
-                // Если выбор библиотеки не найден, отправляем модель Whisper на всякий случай
+            
+            let recognitionService = 'faster-whisper'; // Значение по умолчанию
+            
+            if (serviceSelect && serviceSelect.value) {
+                recognitionService = serviceSelect.value;
+            }
+            
+            formData.append('recognition_service', recognitionService);
+            
+            // Для Vosk отправляем vosk_model, для других - whisper_model
+            if (recognitionService === 'vosk' && voskModelSelect) {
+                formData.append('vosk_model', voskModelSelect.value);
+            } else if (recognitionService !== 'vosk' && whisperModelSelect) {
                 formData.append('whisper_model', whisperModelSelect.value);
             }
             
